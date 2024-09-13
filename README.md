@@ -54,7 +54,13 @@ Carwash Point of Sale
     php artisan migrate
     ```
 
-7. **Start the development server:**
+7. **Seed the database (optional):**
+
+    ```bash
+    php artisan db:seed
+    ```
+
+8. **Start the development server:**
 
     ```bash
     php artisan serve
