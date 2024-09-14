@@ -24,15 +24,22 @@ class OrderController extends Controller
         $validated = $request->only(["customer_id", "service_id"]);
 
         try {
-            DB::transaction(function () use ($validated) {
+            $transaction = DB::transaction(function () use ($validated) {
+                $messageType = null;
+                $messageData = null;
+
                 $customer = Customer::find($validated["customer_id"]);
                 if (!$customer) {
-                    return back()->with("fail", "Customer not exists in database.");
+                    $messageType = "fail";
+                    $messageData = "Customer not exists in database.";
+                    return compact("messageType", "messageData");
                 }
 
                 $service = WashService::find($validated["service_id"]);
                 if (!$service) {
-                    return back()->with("fail", "Service not exists in database.");
+                    $messageType = "fail";
+                    $messageData = "Service not exists in database.";
+                    return compact("messageType", "messageData");
                 }
 
                 // Check if customer has been ordered 5 times
@@ -54,10 +61,18 @@ class OrderController extends Controller
                     "total_price" => $totalPrice,
                 ]);
 
-                return redirect()->route("dashboard.home")->with("message", "Order created.");
+                // Increase buyer's milestones by 1 after ordering
+                $customer->increment("milestones", 1);
+
+                $messageType = "message";
+                $messageData = "Order created.";
+                return compact("messageType", "messageData", "order");
             }, 3);
 
-            return back();
+            if ($transaction["messageType"] == "message") {
+                return redirect()->to(route("order.show", $transaction["order"]->id));
+            }
+            return back()->with($transaction["messageType"], $transaction["messageData"]);
         } catch (Exception $e) {
             return back()->with("fail", "Error when creating order data.");
         }
@@ -70,9 +85,6 @@ class OrderController extends Controller
                 $order->update([
                     "status" => "paid",
                 ]);
-
-                // Increase buyer's milestones by 1 after ordering
-                $order->customer->increment("milestones", 1);
                 $order->save();
 
                 return back()->with("message", "Order paid.");
